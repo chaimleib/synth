@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -19,7 +17,7 @@ const (
 	bufSize            = sampleRate * channels * byteDepth / 100
 	duration           = 2000 * time.Millisecond
 	frequency  float64 = 440.0
-	amplitude  float64 = 0.01
+	amplitude  float64 = 0.05
 	phase      float64 = 0
 )
 
@@ -35,21 +33,20 @@ func beepTest() error {
 		return err
 	}
 
-	ctx := context.Background()
-	sound, err := tone(ctx, duration, frequency, amplitude, phase)
+	sound, err := tone(duration, frequency, amplitude, phase)
 	_, err = io.Copy(p, sound)
 	return err
 }
 
 func monoPlayer() (*oto.Player, error) {
-	c, err := oto.NewContext(sampleRate, channels, byteDepth, sampleRate)
+	c, err := oto.NewContext(sampleRate, channels, byteDepth, bufSize)
 	if err != nil {
 		return nil, err
 	}
 	return c.NewPlayer(), nil
 }
 
-func tone(ctx context.Context, duration time.Duration, frequency, amplitude, phase float64) (io.Reader, error) {
+func tone(duration time.Duration, frequency, amplitude, phase float64) (io.Reader, error) {
 	var (
 		buf bytes.Buffer
 		i   uint64
@@ -57,32 +54,28 @@ func tone(ctx context.Context, duration time.Duration, frequency, amplitude, pha
 
 	// theta0 is initial phase offset in samples
 	var periodSamples float64 = sampleRate / frequency
-	fmt.Println("periodSamples:", periodSamples)
 	var theta0 float64 = phase * periodSamples / (2 * math.Pi)
-	var maxAmplitude int = math.MaxUint16
+	var maxAmplitude int = math.MaxInt16
 	if byteDepth == 1 {
-		maxAmplitude = math.MaxUint8
+		maxAmplitude = math.MaxInt8
 	}
-	var iAmplitude float64 = float64(maxAmplitude) * amplitude
-	fmt.Println("iAmplitude:", iAmplitude)
+	iAmplitude := int(float64(maxAmplitude) * amplitude)
 	for i = 0; time.Duration(i)*time.Second/sampleRate < duration; i++ {
 		// waveSample is which sample within the waveform's repeating period
 		waveSample := math.Remainder(float64(i)+theta0, periodSamples)
-		// fmt.Println("waveSample:", waveSample)
-		x := uint(0)
+		x := 0
 		if waveSample > 0 {
-			x = uint(iAmplitude)
+			x += iAmplitude
+		} else {
+			x -= iAmplitude
 		}
 		buf.WriteByte(byte(x & 0xff))
 		if byteDepth > 1 {
 			buf.WriteByte(byte((x >> 8) & 0xff))
 		}
 	}
-	fmt.Println("samples:", i)
 	for ; i%bufSize != 0; i++ {
-		buf.WriteByte(0)
+		buf.WriteByte(0x00)
 	}
-	fmt.Println("buffer samples:", i)
-	fmt.Println("buffer length:", buf.Len())
 	return &buf, nil
 }
