@@ -7,6 +7,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/chaimleib/synth/samplebuffer"
 	"github.com/hajimehoshi/oto"
 )
 
@@ -14,8 +15,8 @@ const (
 	sampleRate         = 48000
 	channels           = 1
 	byteDepth          = 2
-	bufSize            = sampleRate * channels * byteDepth / 100
-	duration           = 2000 * time.Millisecond
+	chunkSize          = sampleRate * channels * byteDepth / 100
+	duration           = 500 * time.Millisecond
 	frequency  float64 = 440.0
 	amplitude  float64 = 0.05
 	phase      float64 = 0
@@ -34,48 +35,72 @@ func beepTest() error {
 	}
 
 	sound, err := tone(duration, frequency, amplitude, phase)
-	_, err = io.Copy(p, sound)
+	if err != nil {
+		return err
+	}
+
+	silence, err := samplebuffer.NewSilence(sampleRate, byteDepth, channels, duration)
+	if err != nil {
+		return err
+	}
+
+	// Chunks only play after completely sent to the player, so finish the chunk.
+	chunkFinishLen := (-11 * sound.Len()) % chunkSize
+	chunkFinish := make([]byte, chunkFinishLen)
+
+	reader := io.MultiReader(
+		bytes.NewReader(sound.Bytes()),
+		bytes.NewReader(silence.Bytes()),
+
+		bytes.NewReader(sound.Bytes()),
+		bytes.NewReader(silence.Bytes()),
+
+		bytes.NewReader(sound.Bytes()),
+		bytes.NewReader(silence.Bytes()),
+
+		bytes.NewReader(sound.Bytes()),
+		bytes.NewReader(silence.Bytes()),
+
+		bytes.NewReader(sound.Bytes()),
+		bytes.NewReader(silence.Bytes()),
+
+		bytes.NewReader(sound.Bytes()),
+		bytes.NewReader(chunkFinish),
+	)
+	_, err = io.Copy(p, reader)
 	return err
 }
 
 func monoPlayer() (*oto.Player, error) {
-	c, err := oto.NewContext(sampleRate, channels, byteDepth, bufSize)
+	c, err := oto.NewContext(sampleRate, channels, byteDepth, chunkSize)
 	if err != nil {
 		return nil, err
 	}
 	return c.NewPlayer(), nil
 }
 
-func tone(duration time.Duration, frequency, amplitude, phase float64) (io.Reader, error) {
-	var (
-		buf bytes.Buffer
-		i   uint64
-	)
+func tone(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
+	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
+	if err != nil {
+		return nil, err
+	}
 
 	// theta0 is initial phase offset in samples
-	var periodSamples float64 = sampleRate / frequency
-	var theta0 float64 = phase * periodSamples / (2 * math.Pi)
-	var maxAmplitude int = math.MaxInt16
-	if byteDepth == 1 {
-		maxAmplitude = math.MaxInt8
-	}
+	periodSamples := float64(sampleRate) / frequency
+	theta0 := phase * periodSamples / (2 * math.Pi)
+	maxAmplitude := buf.MaxValue()
 	iAmplitude := int(float64(maxAmplitude) * amplitude)
-	for i = 0; time.Duration(i)*time.Second/sampleRate < duration; i++ {
-		// waveSample is which sample within the waveform's repeating period
+
+	for i := 0; i < buf.SamplesForDuration(duration); i++ {
+		// waveSample is which sample within the waveform's repeating period. It
+		// ranges from -periodSamples/2 to periodSamples/2.
 		waveSample := math.Remainder(float64(i)+theta0, periodSamples)
-		x := 0
 		if waveSample > 0 {
-			x += iAmplitude
+			buf.WriteChanSample(iAmplitude)
 		} else {
-			x -= iAmplitude
-		}
-		buf.WriteByte(byte(x & 0xff))
-		if byteDepth > 1 {
-			buf.WriteByte(byte((x >> 8) & 0xff))
+			buf.WriteChanSample(-iAmplitude)
 		}
 	}
-	for ; i%bufSize != 0; i++ {
-		buf.WriteByte(0x00)
-	}
-	return &buf, nil
+
+	return buf, nil
 }
