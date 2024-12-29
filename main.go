@@ -6,8 +6,10 @@ import (
 	"io"
 	"log"
 	"math"
+	"os"
 	"time"
 
+	"github.com/chaimleib/synth/encoding/wav"
 	"github.com/chaimleib/synth/samplebuffer"
 	"github.com/hajimehoshi/oto"
 )
@@ -24,40 +26,39 @@ const (
 )
 
 func main() {
-	if err := beepTest(); err != nil {
+	reader, err := beepTest()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := save(reader, "beep.wav"); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func beepTest() error {
-	p, err := monoPlayer()
-	if err != nil {
-		return err
-	}
-
+func beepTest() (io.Reader, error) {
 	squareSound, err := square(duration, frequency, amplitude, phase)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sawtoothSound, err := sawtooth(duration, frequency, amplitude, phase)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	triangleSound, err := triangle(duration, frequency, amplitude, phase)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sineSound, err := sine(duration, frequency, amplitude, phase)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	silence, err := samplebuffer.NewSilence(sampleRate, byteDepth, channels, duration)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Chunks only play after completely sent to the player, so finish the chunk.
@@ -89,8 +90,31 @@ func beepTest() error {
 		&printReader{name: "sine", buf: sineSound.Bytes()},
 		bytes.NewReader(chunkFinish),
 	)
-	_, err = io.Copy(p, reader)
+	return reader, nil
+}
+
+func play(r io.Reader) error {
+	p, err := monoPlayer()
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(p, r)
 	return err
+}
+
+func save(r io.Reader, fpath string) error {
+	buf, err := wav.NewEncoder(wav.AudioFormatPCM, channels, byteDepth, sampleRate).Encode(r)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(fpath, buf, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type printReader struct {
