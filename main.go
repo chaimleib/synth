@@ -1,10 +1,9 @@
-package main
+package synth
 
 import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"time"
@@ -25,33 +24,23 @@ const (
 	phase      float64 = 0
 )
 
-func main() {
-	reader, err := beepTest()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := save(reader, "beep.wav"); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func beepTest() (io.Reader, error) {
-	squareSound, err := square(duration, frequency, amplitude, phase)
+func ExampleTones() (io.Reader, error) {
+	squareSound, err := Square(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	sawtoothSound, err := sawtooth(duration, frequency, amplitude, phase)
+	sawtoothSound, err := Sawtooth(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	triangleSound, err := triangle(duration, frequency, amplitude, phase)
+	triangleSound, err := Triangle(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	sineSound, err := sine(duration, frequency, amplitude, phase)
+	sineSound, err := Sine(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +82,7 @@ func beepTest() (io.Reader, error) {
 	return reader, nil
 }
 
-func play(r io.Reader) error {
+func Play(r io.Reader) error {
 	p, err := monoPlayer()
 	if err != nil {
 		return err
@@ -103,7 +92,7 @@ func play(r io.Reader) error {
 	return err
 }
 
-func save(r io.Reader, fpath string) error {
+func Save(r io.Reader, fpath string) error {
 	buf, err := wav.NewEncoder(wav.AudioFormatPCM, channels, byteDepth, sampleRate).Encode(r)
 	if err != nil {
 		return err
@@ -149,7 +138,7 @@ func monoPlayer() (*oto.Player, error) {
 	return c.NewPlayer(), nil
 }
 
-func square(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
+func Square(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
 	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
 	if err != nil {
 		return nil, err
@@ -175,7 +164,7 @@ func square(duration time.Duration, frequency, amplitude, phase float64) (*sampl
 	return buf, nil
 }
 
-func sawtooth(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
+func Sawtooth(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
 	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
 	if err != nil {
 		return nil, err
@@ -197,7 +186,7 @@ func sawtooth(duration time.Duration, frequency, amplitude, phase float64) (*sam
 	return buf, nil
 }
 
-func triangle(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
+func Triangle(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
 	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
 	if err != nil {
 		return nil, err
@@ -226,7 +215,7 @@ func triangle(duration time.Duration, frequency, amplitude, phase float64) (*sam
 	return buf, nil
 }
 
-func sine(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
+func Sine(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
 	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
 	if err != nil {
 		return nil, err

@@ -1,11 +1,11 @@
 TARGET=synth
 
-default: build
+all: synth play
 
-build:
-	go build -o $(TARGET) ./main.go
+play:
+	go run ./cmd/play
 
-test: build
-	./$(TARGET)
+synth:
+	go run ./cmd/synth beep.wav
 
 .PHONY: build test
