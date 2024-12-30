@@ -1,3 +1,4 @@
+// Package wav allows writing PCM or float audio data to a WAV file.
 package wav
 
 import (
@@ -6,6 +7,7 @@ import (
 	"io"
 )
 
+// WAV is the file header layout. Source: https://en.wikipedia.org/wiki/WAV.
 type WAV struct {
 	// Master RIFF chunk
 	FileTypeBlocID [4]byte // value:"RIFF"
@@ -25,6 +27,8 @@ type WAV struct {
 
 	// Data chunk
 	DataSize uint32
+	// SampledData has to be appended manually, since encoding/binary only works
+	// with fixed-length fields.
 	// SampledData []byte
 }
 
@@ -37,48 +41,60 @@ type encoder struct {
 	AudioFormat uint16
 	NbrChannels uint16
 	Frequency   uint32
-	byteDepth   int
+	ByteDepth   int
 }
 
+// NewEncoder creates a new encoder, which describes the format of the audio
+// samples to be encoded.
 func NewEncoder(audioFormat, nbrChannels, byteDepth, frequency int) *encoder {
 	return &encoder{
 		AudioFormat: uint16(audioFormat),
 		NbrChannels: uint16(nbrChannels),
 		Frequency:   uint32(frequency),
-		byteDepth:   byteDepth,
+		ByteDepth:   byteDepth,
 	}
 }
 
+// Encode takes an io.Reader and returns a buffer containing a WAV file.
 func (e *encoder) Encode(r io.Reader) ([]byte, error) {
 	buf, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 	w := new(WAV)
+
+	// Set all the fixed string fields.
 	copy(w.FileTypeBlocID[:], "RIFF")
 	copy(w.FileFormatID[:], "WAVE")
 	copy(w.FormatBlocID[:], "fmt ")
 	copy(w.DataBlocID[:], "data")
 
+	// Base description fields.
 	w.BlocSize = 16
 	w.AudioFormat = e.AudioFormat
 	w.NbrChannels = e.NbrChannels
 	w.Frequency = e.Frequency
-	w.BytePerBloc = e.NbrChannels * uint16(e.byteDepth)
-	w.BytePerSec = uint32(e.Frequency) * uint32(w.BytePerBloc)
-	w.BitsPerSample = uint16(8 * e.byteDepth)
+
+	// Derived description fields.
+	w.BytePerBloc = e.NbrChannels * uint16(e.ByteDepth)
+	w.BytePerSec = e.Frequency * uint32(w.BytePerBloc)
+	w.BitsPerSample = 8 * uint16(e.ByteDepth)
 	w.DataSize = uint32(len(buf))
-	// w.SampledData = buf
 	w.FileSize = 16 + w.BlocSize + w.DataSize
 
 	var out bytes.Buffer
+
+	// Write the fixed-length struct fields.
 	err = binary.Write(&out, binary.LittleEndian, w)
 	if err != nil {
 		return nil, err
 	}
+
+	// Write the audio samples.
 	_, err = out.Write(buf)
 	if err != nil {
 		return nil, err
 	}
+
 	return out.Bytes(), nil
 }
