@@ -11,11 +11,17 @@ func (enc *Encoder) NewSilence(d time.Duration) (*Buffer, error) {
 	b := &Buffer{
 		encoder: enc,
 	}
-	l, ok := enc.bytesForDuration(d)
-	if !ok {
-		return nil, errMaxInt
+	l, err := enc.BytesForDuration(d)
+	if err != nil {
+		return nil, err
 	}
 	b.data = make([]byte, l)
+	if enc.Depth == 1 {
+		zero := enc.ZeroValue()
+		for i := range b.data {
+			b.data[i] = byte(zero)
+		}
+	}
 	return b, nil
 }
 
@@ -29,8 +35,9 @@ func (enc *Encoder) Square(duration time.Duration, frequency, amplitude, phase f
 	// theta0 is initial phase offset in samples
 	periodSamples := float64(enc.Rate) / frequency
 	theta0 := phase * periodSamples / (2 * math.Pi)
-	maxAmplitude := enc.MaxValue()
+	maxAmplitude := enc.MaxAmplitude()
 	iAmplitude := int(float64(maxAmplitude) * amplitude)
+	zero := enc.ZeroValue()
 
 	for i := 0; i < enc.SamplesForDuration(duration); i++ {
 		// waveSample is which sample within the waveform's repeating period. It
@@ -41,7 +48,7 @@ func (enc *Encoder) Square(duration time.Duration, frequency, amplitude, phase f
 			x = -x
 		}
 		for c := 0; c < enc.Channels; c++ {
-			buf.WriteChanSample(x)
+			buf.WriteChanSample(x + zero)
 		}
 	}
 
@@ -58,8 +65,9 @@ func (enc *Encoder) Sawtooth(duration time.Duration, frequency, amplitude, phase
 	// theta0 is initial phase offset in samples
 	periodSamples := float64(enc.Rate) / frequency
 	theta0 := phase * periodSamples / (2 * math.Pi)
-	maxAmplitude := enc.MaxValue()
+	maxAmplitude := enc.MaxAmplitude()
 	iAmplitude := float64(maxAmplitude) * amplitude
+	zero := enc.ZeroValue()
 
 	for i := 0; i < enc.SamplesForDuration(duration); i++ {
 		// waveFraction is how far we have progressed into the waveform's repeating
@@ -67,7 +75,7 @@ func (enc *Encoder) Sawtooth(duration time.Duration, frequency, amplitude, phase
 		waveFraction := math.Remainder(float64(i)+theta0, periodSamples) / periodSamples
 		x := int(2 * iAmplitude * waveFraction)
 		for c := 0; c < enc.Channels; c++ {
-			buf.WriteChanSample(x)
+			buf.WriteChanSample(x + zero)
 		}
 	}
 
@@ -85,8 +93,9 @@ func (enc *Encoder) Triangle(duration time.Duration, frequency, amplitude, phase
 	// theta0 is initial phase offset in samples. Includes an offset so that we
 	// start at 0.
 	theta0 := (phase + math.Pi/2) * periodSamples / (2 * math.Pi)
-	maxAmplitude := enc.MaxValue()
+	maxAmplitude := enc.MaxAmplitude()
 	iAmplitude := float64(maxAmplitude) * amplitude
+	zero := enc.ZeroValue()
 
 	for i := 0; i < enc.SamplesForDuration(duration); i++ {
 		// waveFraction is how far we have progressed into the waveform's repeating
@@ -103,7 +112,7 @@ func (enc *Encoder) Triangle(duration time.Duration, frequency, amplitude, phase
 			x = int((-4*waveFraction - 1.0) * iAmplitude)
 		}
 		for c := 0; c < enc.Channels; c++ {
-			buf.WriteChanSample(x)
+			buf.WriteChanSample(x + zero)
 		}
 	}
 
@@ -119,14 +128,15 @@ func (enc *Encoder) Sine(duration time.Duration, frequency, amplitude, phase flo
 
 	// theta0 is initial phase offset in samples
 	periodSamples := float64(enc.Rate) / frequency
-	maxAmplitude := enc.MaxValue()
+	maxAmplitude := enc.MaxAmplitude()
 	iAmplitude := float64(maxAmplitude) * amplitude
+	zero := enc.ZeroValue()
 
 	for i := 0; i < enc.SamplesForDuration(duration); i++ {
 		theta := float64(i) * 2 * math.Pi / periodSamples
 		x := int(iAmplitude * math.Sin(theta+phase))
 		for c := 0; c < enc.Channels; c++ {
-			buf.WriteChanSample(x)
+			buf.WriteChanSample(x + zero)
 		}
 	}
 

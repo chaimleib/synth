@@ -13,12 +13,12 @@ func main() {
 	}
 	fpath := os.Args[1]
 
-	reader, err := synth.ExampleTones()
+	reader, enc, _, err := synth.ExampleTones(0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := synth.Save(reader, fpath); err != nil {
+	if err := synth.Save(reader, enc, fpath); err != nil {
 		log.Fatal(err)
 	}
 }

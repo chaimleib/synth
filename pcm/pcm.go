@@ -39,14 +39,14 @@ func (enc *Encoder) samplesForBytes(n int) int {
 	return n / int(enc.Channels*enc.Depth)
 }
 
-// bytesForDuration converts a time.Duration into the number of bytes required
+// BytesForDuration converts a time.Duration into the number of bytes required
 // to encode that amount of audio, given the current Encoder settings.
-func (enc *Encoder) bytesForDuration(d time.Duration) (int, bool) {
+func (enc *Encoder) BytesForDuration(d time.Duration) (int, error) {
 	size := d * time.Duration(enc.Rate*enc.Depth*enc.Channels) / time.Second
 	if size > time.Duration(maxInt) {
-		return 0, false
+		return 0, errMaxInt
 	}
-	return int(size), true
+	return int(size), nil
 }
 
 // durationForBytes converts a number of bytes into a time.Duration that that
@@ -55,11 +55,18 @@ func (enc *Encoder) durationForBytes(length int) time.Duration {
 	return time.Duration(length) * time.Second / time.Duration(enc.Rate*enc.Depth*enc.Channels)
 }
 
-// MaxValue returns the maximum signal value, based on the Encoder's
+// MaxAmplitude returns the maximum signal value, based on the Encoder's
 // depth. For example, a byte depth of 1 will yield 127, and a depth
 // of 2 will yield 32767.
-func (enc *Encoder) MaxValue() int {
+func (enc *Encoder) MaxAmplitude() int {
 	return ^(-1 << (enc.Depth*8 - 1))
+}
+
+func (enc *Encoder) ZeroValue() int {
+	if enc.Depth == 1 {
+		return 0x80
+	}
+	return 0
 }
 
 // Buffer contains audio data and how it was encoded.
@@ -98,9 +105,9 @@ func (b *Buffer) allocate(d time.Duration) error {
 	}
 
 	// Convert d to the number of bytes being requested.
-	size, ok := b.encoder.bytesForDuration(d)
-	if !ok {
-		return errMaxInt
+	size, err := b.encoder.BytesForDuration(d)
+	if err != nil {
+		return err
 	}
 
 	// make-append rounds capacity up to the next memory chunk size.
