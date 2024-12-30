@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"time"
 
 	"github.com/chaimleib/synth/encoding/wav"
-	"github.com/chaimleib/synth/samplebuffer"
+	"github.com/chaimleib/synth/pcm"
 	"github.com/hajimehoshi/oto"
 )
 
@@ -25,27 +24,29 @@ const (
 )
 
 func ExampleTones() (io.Reader, error) {
-	squareSound, err := Square(duration, frequency, amplitude, phase)
+	enc := pcm.New(sampleRate, byteDepth, channels)
+
+	squareSound, err := enc.Square(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	sawtoothSound, err := Sawtooth(duration, frequency, amplitude, phase)
+	sawtoothSound, err := enc.Sawtooth(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	triangleSound, err := Triangle(duration, frequency, amplitude, phase)
+	triangleSound, err := enc.Triangle(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	sineSound, err := Sine(duration, frequency, amplitude, phase)
+	sineSound, err := enc.Sine(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	silence, err := samplebuffer.NewSilence(sampleRate, byteDepth, channels, duration)
+	silence, err := enc.NewSilence(duration)
 	if err != nil {
 		return nil, err
 	}
@@ -136,100 +137,4 @@ func monoPlayer() (*oto.Player, error) {
 		return nil, err
 	}
 	return c.NewPlayer(), nil
-}
-
-func Square(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
-	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
-	if err != nil {
-		return nil, err
-	}
-
-	// theta0 is initial phase offset in samples
-	periodSamples := float64(sampleRate) / frequency
-	theta0 := phase * periodSamples / (2 * math.Pi)
-	maxAmplitude := buf.MaxValue()
-	iAmplitude := int(float64(maxAmplitude) * amplitude)
-
-	for i := 0; i < buf.SamplesForDuration(duration); i++ {
-		// waveSample is which sample within the waveform's repeating period. It
-		// ranges from -periodSamples/2 to periodSamples/2.
-		waveSample := math.Remainder(float64(i)+theta0, periodSamples)
-		if waveSample > 0 {
-			buf.WriteChanSample(iAmplitude)
-		} else {
-			buf.WriteChanSample(-iAmplitude)
-		}
-	}
-
-	return buf, nil
-}
-
-func Sawtooth(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
-	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
-	if err != nil {
-		return nil, err
-	}
-
-	// theta0 is initial phase offset in samples
-	periodSamples := float64(sampleRate) / frequency
-	theta0 := phase * periodSamples / (2 * math.Pi)
-	maxAmplitude := buf.MaxValue()
-	iAmplitude := float64(maxAmplitude) * amplitude
-
-	for i := 0; i < buf.SamplesForDuration(duration); i++ {
-		// waveFraction is how far we have progressed into the waveform's repeating
-		// period. It ranges from -0.5 to 0.5.
-		waveFraction := math.Remainder(float64(i)+theta0, periodSamples) / periodSamples
-		buf.WriteChanSample(int(2 * iAmplitude * waveFraction))
-	}
-
-	return buf, nil
-}
-
-func Triangle(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
-	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
-	if err != nil {
-		return nil, err
-	}
-
-	// theta0 is initial phase offset in samples
-	periodSamples := float64(sampleRate) / frequency
-	theta0 := (phase + math.Pi/2) * periodSamples / (2 * math.Pi)
-	maxAmplitude := buf.MaxValue()
-	iAmplitude := float64(maxAmplitude) * amplitude
-
-	for i := 0; i < buf.SamplesForDuration(duration); i++ {
-		// waveFraction is how far we have progressed into the waveform's repeating
-		// period. It ranges from -0.5 to 0.5.
-		waveFraction := math.Remainder(float64(i)+theta0, periodSamples) / periodSamples
-		// output varies linearly from -iAmplitude at 0 to iAmplitude at pi, and
-		// back down to -iAmplitude at 2pi. Note that this means output is not 0 at
-		// phase 0, so theta0 includes an offset to provide for this.
-		if waveFraction >= 0.0 {
-			buf.WriteChanSample(int((4*waveFraction - 1.0) * iAmplitude))
-		} else {
-			buf.WriteChanSample(int((-4*waveFraction - 1.0) * iAmplitude))
-		}
-	}
-
-	return buf, nil
-}
-
-func Sine(duration time.Duration, frequency, amplitude, phase float64) (*samplebuffer.Buffer, error) {
-	buf, err := samplebuffer.New(sampleRate, byteDepth, channels, duration)
-	if err != nil {
-		return nil, err
-	}
-
-	// theta0 is initial phase offset in samples
-	periodSamples := float64(sampleRate) / frequency
-	maxAmplitude := buf.MaxValue()
-	iAmplitude := float64(maxAmplitude) * amplitude
-
-	for i := 0; i < buf.SamplesForDuration(duration); i++ {
-		theta := float64(i) * 2 * math.Pi / periodSamples
-		buf.WriteChanSample(int(iAmplitude * math.Sin(theta+phase)))
-	}
-
-	return buf, nil
 }
