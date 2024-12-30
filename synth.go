@@ -23,31 +23,35 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 		byteDepth          = 2
 		duration           = 500 * time.Millisecond
 		frequency  float64 = 440.0
-		amplitude  float64 = 0.1
+		amplitude  float64 = 0.3
 		phase      float64 = 0
+		decay              = 200 * time.Millisecond
 	)
 
 	enc = pcm.New(sampleRate, byteDepth, channels)
-	fmt.Println("maxVal:", enc.MaxAmplitude())
 	square, err := enc.Square(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	square.Decay(0, decay)
 
 	sawtooth, err := enc.Sawtooth(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	sawtooth.Decay(0, decay)
 
 	triangle, err := enc.Triangle(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	triangle.Decay(0, decay)
 
 	sine, err := enc.Sine(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	sine.Decay(0, decay)
 
 	silence, err := enc.NewSilence(duration)
 	if err != nil {

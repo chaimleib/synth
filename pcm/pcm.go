@@ -145,3 +145,36 @@ func (b *Buffer) Len() int { return len(b.data) }
 func (b *Buffer) Duration() time.Duration {
 	return b.encoder.durationForBytes(b.Len())
 }
+
+// Read returns the value of sample number i for the given channel.
+func (b *Buffer) ReadValue(i, channel int) int {
+	if i < 0 || channel < 0 || channel >= b.encoder.Channels {
+		return 0 // no such value
+	}
+	i0 := i*b.encoder.Depth*b.encoder.Channels + b.encoder.Depth*channel
+	var result int
+	// concatenate the bytes
+	for shift := 0; shift < b.encoder.Depth; shift++ {
+		result += int(b.data[i0+shift]) << (8 * shift)
+	}
+
+	// if representing a signed int, sign-extend
+	if b.encoder.Depth != 1 {
+		mask := 1 << (b.encoder.Depth*8 - 1) // sign bit mask
+		result = (result ^ mask) - mask
+	}
+	return result
+}
+
+// Write changes the value of sample number i for the given channel.
+// Assumes that i already exists. If it doesn't, use WriteChanSample
+// instead.
+func (b *Buffer) WriteValue(value, i, channel int) {
+	if i < 0 || channel < 0 || channel >= b.encoder.Channels {
+		return
+	}
+	i0 := i*b.encoder.Depth*b.encoder.Channels + b.encoder.Depth*channel
+	for shift := 0; shift < b.encoder.Depth; shift++ {
+		b.data[i0+shift] = byte(0xff & (value >> (8 * shift)))
+	}
+}
