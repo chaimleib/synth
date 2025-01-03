@@ -62,6 +62,9 @@ func (enc *Encoder) MaxAmplitude() int {
 	return ^(-1 << (enc.Depth*8 - 1))
 }
 
+// ZeroValue returns the "at-rest" value. For signed types, this is 0; for
+// unsigned types, this is a uint with the greatest bit set, which is
+// half of the maximum amplitude, rounded up.
 func (enc *Encoder) ZeroValue() int {
 	if enc.Depth == 1 {
 		return 0x80
@@ -146,7 +149,7 @@ func (b *Buffer) Duration() time.Duration {
 	return b.encoder.durationForBytes(b.Len())
 }
 
-// Read returns the value of sample number i for the given channel.
+// ReadValue returns the value of sample number i for the given channel.
 func (b *Buffer) ReadValue(i, channel int) int {
 	if i < 0 || channel < 0 || channel >= b.encoder.Channels {
 		return 0 // no such value
@@ -166,9 +169,8 @@ func (b *Buffer) ReadValue(i, channel int) int {
 	return result
 }
 
-// Write changes the value of sample number i for the given channel.
-// Assumes that i already exists. If it doesn't, use WriteChanSample
-// instead.
+// WriteValue changes the value of sample number i for the given channel.
+// Assumes that i already exists. If it doesn't, use WriteChanSample instead.
 func (b *Buffer) WriteValue(value, i, channel int) {
 	if i < 0 || channel < 0 || channel >= b.encoder.Channels {
 		return

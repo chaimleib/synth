@@ -25,7 +25,7 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 		frequency  float64 = 440.0
 		amplitude  float64 = 0.3
 		phase      float64 = 0
-		decay              = 300 * time.Millisecond
+		decay              = 250 * time.Millisecond
 		fadeout            = 20 * time.Millisecond
 	)
 
@@ -58,6 +58,13 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 	sine.Decay(0, decay)
 	sine.Fadeout(fadeout)
 
+	noise, err := enc.WhiteNoise(duration, amplitude)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	noise.Decay(0, decay)
+	noise.Fadeout(fadeout)
+
 	silence, err := enc.NewSilence(duration)
 	if err != nil {
 		return nil, nil, 0, err
@@ -76,6 +83,9 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 		&printReader{name: "sine", buf: sine.Bytes()},
 		bytes.NewReader(silence.Bytes()),
 
+		&printReader{name: "white noise", buf: noise.Bytes()},
+		bytes.NewReader(silence.Bytes()),
+
 		&printReader{name: "square", buf: square.Bytes()},
 		bytes.NewReader(silence.Bytes()),
 
@@ -86,6 +96,9 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 		bytes.NewReader(silence.Bytes()),
 
 		&printReader{name: "sine", buf: sine.Bytes()},
+		bytes.NewReader(silence.Bytes()),
+
+		&printReader{name: "white noise", buf: noise.Bytes()},
 	}
 
 	if chunkDuration != 0 {

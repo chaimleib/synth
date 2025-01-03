@@ -2,6 +2,8 @@ package pcm
 
 import (
 	"math"
+	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -20,6 +22,47 @@ func (enc *Encoder) NewSilence(d time.Duration) (*Buffer, error) {
 		zero := enc.ZeroValue()
 		for i := range b.data {
 			b.data[i] = byte(zero)
+		}
+	}
+	return b, nil
+}
+
+var randPool sync.Pool
+
+func init() {
+	randPool.New = func() any {
+		src := rand.NewSource(time.Now().UnixNano())
+		return rand.New(src)
+	}
+}
+
+// WhiteNoise creates a buffer of evenly-distributed random noise
+// lasting for the given duration of audio.
+func (enc *Encoder) WhiteNoise(d time.Duration, amplitude float64) (*Buffer, error) {
+	b := &Buffer{
+		encoder: enc,
+	}
+
+	// allocate the buffer
+	l, err := enc.BytesForDuration(d)
+	if err != nil {
+		return nil, err
+	}
+	b.data = make([]byte, l)
+
+	// fill the buffer with random bytes
+	{ // Scope the r so that we don't use it after we've returned it to the pool.
+		r := randPool.Get().(*rand.Rand)
+		_, _ = r.Read(b.data) // always returns nil error
+		randPool.Put(r)
+	}
+
+	// scale the random values and re-center if needed
+	zero := enc.ZeroValue()
+	for i := 0; i < b.SampleLen(); i++ {
+		for c := 0; c < enc.Channels; c++ {
+			x := int(amplitude*float64(b.ReadValue(i, c)-zero)) + zero
+			b.WriteValue(x, i, c)
 		}
 	}
 	return b, nil
