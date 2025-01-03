@@ -25,7 +25,8 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 		frequency  float64 = 440.0
 		amplitude  float64 = 0.3
 		phase      float64 = 0
-		decay              = 200 * time.Millisecond
+		decay              = 300 * time.Millisecond
+		fadeout            = 20 * time.Millisecond
 	)
 
 	enc = pcm.New(sampleRate, byteDepth, channels)
@@ -34,24 +35,28 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 		return nil, nil, 0, err
 	}
 	square.Decay(0, decay)
+	square.Fadeout(fadeout)
 
 	sawtooth, err := enc.Sawtooth(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	sawtooth.Decay(0, decay)
+	sawtooth.Fadeout(fadeout)
 
 	triangle, err := enc.Triangle(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	triangle.Decay(0, decay)
+	triangle.Fadeout(fadeout)
 
 	sine, err := enc.Sine(duration, frequency, amplitude, phase)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	sine.Decay(0, decay)
+	sine.Fadeout(fadeout)
 
 	silence, err := enc.NewSilence(duration)
 	if err != nil {

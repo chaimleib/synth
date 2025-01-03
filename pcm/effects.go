@@ -22,3 +22,21 @@ func (b *Buffer) Decay(start, halfLife time.Duration) {
 		}
 	}
 }
+
+// Fadeout reduces the volume, linearly, until at the end of the
+// buffer the volume is zero.
+func (b *Buffer) Fadeout(duration time.Duration) {
+	count := b.encoder.SamplesForDuration(duration)
+	zero := b.encoder.ZeroValue()
+	end := b.SampleLen()
+
+	for i := 0; i < count; i++ {
+		scale := float64(count-i) / float64(count)
+		j := end - count + i
+		for channel := 0; channel < b.encoder.Channels; channel++ {
+			value := b.ReadValue(j, channel) - zero
+			value = int(float64(value)*scale) + zero
+			b.WriteValue(value, j, channel)
+		}
+	}
+}
