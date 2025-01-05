@@ -42,10 +42,18 @@ func (enc *Encoder) samplesForBytes(n int) int {
 // BytesForDuration converts a time.Duration into the number of bytes required
 // to encode that amount of audio, given the current Encoder settings.
 func (enc *Encoder) BytesForDuration(d time.Duration) (int, error) {
-	size := d * time.Duration(enc.Rate*enc.Depth*enc.Channels) / time.Second
-	if size > time.Duration(maxInt) {
+	rate := uint64(enc.Rate)
+	samples := uint64(d) * rate / uint64(time.Second)
+	if samples*uint64(time.Second) != uint64(d)*rate {
+		samples++
+	}
+	size := samples * uint64(enc.Depth*enc.Channels)
+	if size > uint64(maxInt) {
 		return 0, errMaxInt
 	}
+	// if r := size % uint64(enc.Depth*enc.Channels); r != 0 {
+	// 	size += time.Duration(enc.Depth*enc.Channels) - r
+	// }
 	return int(size), nil
 }
 
