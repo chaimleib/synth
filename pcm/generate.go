@@ -18,8 +18,7 @@ func (enc *Encoder) NewSilence(d time.Duration) (*Buffer, error) {
 		return nil, err
 	}
 	b.data = make([]byte, l)
-	if enc.Depth == 1 {
-		zero := enc.ZeroValue()
+	if zero := enc.ZeroValue(); zero != 0 {
 		for i := range b.data {
 			b.data[i] = byte(zero)
 		}
