@@ -34,6 +34,7 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	square.Fadein(fadeout)
 	square.Decay(0, decay)
 	square.Fadeout(fadeout)
 
@@ -41,6 +42,7 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	sawtooth.Fadein(fadeout)
 	sawtooth.Decay(0, decay)
 	sawtooth.Fadeout(fadeout)
 
@@ -48,6 +50,7 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	triangle.Fadein(fadeout)
 	triangle.Decay(0, decay)
 	triangle.Fadeout(fadeout)
 
@@ -55,6 +58,7 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	sine.Fadein(fadeout)
 	sine.Decay(0, decay)
 	sine.Fadeout(fadeout)
 
@@ -62,6 +66,7 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	noise.Fadein(fadeout)
 	noise.Decay(0, decay)
 	noise.Fadeout(fadeout)
 
@@ -102,15 +107,12 @@ func ExampleTones(chunkDuration time.Duration) (r io.Reader, enc *pcm.Encoder, c
 	}
 
 	if chunkDuration != 0 {
-		// Chunks only play after completely sent to the player, so finish the chunk.
-		chunkSize, err = enc.BytesForDuration(chunkDuration)
+		// On playback, adding silence at the end avoids premature cutoff.
+		chunkFinish, err := enc.NewSilence(chunkDuration)
 		if err != nil {
 			return nil, nil, 0, err
 		}
-
-		chunkFinishLen := (-len(sequence) * square.Len()) % chunkSize
-		chunkFinish := make([]byte, chunkFinishLen)
-		sequence = append(sequence, bytes.NewReader(chunkFinish))
+		sequence = append(sequence, bytes.NewReader(chunkFinish.Bytes()))
 	}
 
 	return io.MultiReader(sequence...), enc, chunkSize, nil
