@@ -8,4 +8,7 @@ play:
 synth:
 	go run ./cmd/synth beep.wav
 
+test:
+	go test -race ./...
+
 .PHONY: build test

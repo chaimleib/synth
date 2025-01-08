@@ -32,7 +32,12 @@ func New(rate, depth, channels int) *Encoder {
 // given duration. In multichannel audio, a point for each channel counts as a
 // single sample.
 func (enc *Encoder) SamplesForDuration(d time.Duration) int {
-	return int(time.Duration(enc.Rate) * d / time.Second)
+	rate := uint64(enc.Rate)
+	samples := uint64(d) * rate / uint64(time.Second)
+	if samples*uint64(time.Second) != uint64(d)*rate {
+		samples++
+	}
+	return int(samples)
 }
 
 func (enc *Encoder) samplesForBytes(n int) int {
